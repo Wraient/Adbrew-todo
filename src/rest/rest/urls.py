@@ -17,5 +17,9 @@ from django.urls import path, include
 from .views import TodoListView
 
 urlpatterns = [
-    path('todos/', TodoListView.as_view(), name='signup'),
+    path('todos/', TodoListView.as_view(), name='todos'),
+    # Also accept the slashless form. APPEND_SLASH can 301 a GET to the
+    # canonical URL, but it cannot redirect a POST without dropping the request
+    # body, so /todos would otherwise fail outright.
+    path('todos', TodoListView.as_view(), name='todos-no-slash'),
 ]

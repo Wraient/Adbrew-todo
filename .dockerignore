@@ -1,0 +1,9 @@
+# Keep the build context small and free of runtime state. Without this, every
+# `docker compose build` tries to upload src/app/node_modules and MongoDB's data
+# directory -- which is root-owned inside the container and unreadable from the
+# host, so the build fails outright once mongo has written anything.
+.git
+src/app/node_modules
+src/app/build
+src/db
+src/tmp

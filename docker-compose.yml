@@ -9,8 +9,8 @@ services:
     links:
       - mongo
     volumes:
-      - ${ADBREW_CODEBASE_PATH}/tmp:/tmp
-      - ${ADBREW_CODEBASE_PATH}:/src
+      - ${CODE_PATH}/tmp:/tmp
+      - ${CODE_PATH}:/src
 
   app:
     build: .
@@ -19,7 +19,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ${ADBREW_CODEBASE_PATH}:/src
+      - ${CODE_PATH}:/src
 
   mongo:
     build: .
@@ -28,7 +28,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ${ADBREW_CODEBASE_PATH}/db/:/data/db
+      - ${CODE_PATH}/db/:/data/db
     command: /usr/bin/mongod --bind_ip 0.0.0.0
 
     

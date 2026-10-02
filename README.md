@@ -1,68 +1,178 @@
-# NOTE: DO NOT FORK THIS REPOSITORY. CLONE AND SETUP A STANDALONE REPOSITORY.
+# TODO
 
-# Adbrew Test!
+A to-do list that runs entirely in Docker: a React front end, a Django API, and
+MongoDB. Clone it, run two commands, open a browser.
 
-Hello! This test is designed to specifically test your Python, React and web development skills. The task is unconventional and has a slightly contrived setup on purpose and requires you to learn basic concepts of Docker on the fly. 
+![screenshot](docs/todo.png)
 
+## What it does
 
-# Structure
+- **Add a to-do.** A text box and a button. Submitting sends it to the API and
+  clears the box.
+- **List them, newest last.** The list comes from the database on every load, so
+  whatever you reload is what was actually saved.
+- **Refreshes without a page reload.** Adding a to-do re-fetches the list from
+  the API rather than guessing at what it saved.
+- **Tells you when something is wrong.** Empty input, a too-long to-do, or an
+  unreachable database each produce a specific message instead of failing
+  quietly.
 
-This repository includes code for a Docker setup with 3 containers:
-* App: This is the React dev server and runs on http://localhost:3000. The code for this resides in src/app directory.
-* API: This is the backend container that run a Django instance on http://localhost:8000. 
-* Mongo: This is a DB instance running on port 27017. Django views already have code written to connect to this instance of Mongo.
+## How it works
 
-We highly recommend you go through the setup in `Dockerfile` and `docker-compose.yml`. If you are able to understand and explain the setup, that will be a huge differentiator.
+Three containers on one Docker network:
 
-# Setup
-1. Clone this repository (DO NOT FORK)
+| Container | Port | What runs |
+|---|---|---|
+| `app` | 3000 | React dev server (create-react-app) |
+| `api` | 8000 | Django + Django REST Framework |
+| `mongo` | 27017 | MongoDB 7 |
+
+They find each other by service name: the API reads `mongo` from the
+environment, Docker's DNS resolves it to the database container's IP.
+
+### The code
+
 ```
-git clone https://github.com/adbrew/test.git
+docker-compose.yml          the three services
+Dockerfile                  builds the image all three share
+src/rest/rest/views.py      HTTP: parse, delegate, respond
+src/rest/rest/services.py   Mongo: every read and write
+src/rest/rest/validation.py input rules
+src/app/src/App.js          state; holds no URLs
+src/app/src/api.js          the only file that knows the API's address
+src/app/src/TodoForm.js     form
+src/app/src/TodoList.js     list
 ```
-2. Change into the cloned directory and set the environment variable for the code path. Replace `path_to_repository` appropriately.
-```
-export ADBREW_CODEBASE_PATH="{path_to_repository}/test/src"
-```
-3. Build container (you only need to build containers for the first time or if you change image definition, i.e., `Dockerfile`). This step will take a good amount of time.
-```
-docker-compose build
-```
-4. Once the build is completed, start the containers:
-```
-docker-compose up -d
-```
-5. Once complete, `docker ps` should output something like this:
-```
-CONTAINER ID   IMAGE               COMMAND                  CREATED         STATUS         PORTS                      NAMES
-e445be7efa61   adbrew_test_api     "bash -c 'cd /src/re…"   3 minutes ago   Up 2 seconds   0.0.0.0:8000->8000/tcp     api
-0fd203f12d8a   adbrew_test_app     "bash -c 'cd /src/ap…"   4 minutes ago   Up 3 minutes   0.0.0.0:3000->3000/tcp     app
-884cb9296791   adbrew_test_mongo   "/usr/bin/mongod --b…"   4 minutes ago   Up 3 minutes   0.0.0.0:27017->27017/tcp   mongo
-```
-6. Check that you are able to access http://localhost:3000 and http://localhost:8000/todos
-7. If the containers in #5 or #6 are not up, we would like you to use your debugging skills to figure out the issue. Only reach out to us if you've exhausted all possible options. The `app` container may take a good amount of time to start since it will download all package dependencies.
 
-# Tips
-1. Once containers are up and running, you can view container logs by executing `docker logs -f --tail=100 {container_name}` Replace `container_name` with `app` or `api`(output of `docker ps`)
-2. You can enter the container and inspect it by executing `docker exec -it {container_name} bash` Replace `{container_name}` with `app` or `api` (output of `docker ps`)
-3. Shut all containers using `docker-compose down`
-4. Restart a container using `docker restart {container_name}`
+The dividing line is deliberate: `views.py` deals in HTTP, `services.py` deals
+in Mongo, and `validation.py` deals in bad input. `services.py` is the only
+Python file that imports `pymongo`; `api.js` is the only JavaScript file that
+knows the backend exists. Swap either one and you touch a single file.
 
+### A to-do, end to end
 
-# Task
+1. You submit. `App.js` calls `createTodo()` from `api.js`.
+2. `api.js` `POST`s JSON to `/todos/`. One helper handles every request, so no
+   component ever looks at a status code — it either resolves or throws.
+3. Django hands the body to `validation.py`. Bad input returns `400` with a
+   message naming the problem.
+4. Good input goes to `services.py`, which writes `{_id, description,
+   created_at}` to Mongo and returns the new document.
+5. `App.js` re-fetches the list and re-renders.
 
-When you run `localhost:3000`, you would see 2 things:
-1. A form with a TODO description textbox and a submit button. On this form submission, the app should interact with the Django backend (`POST http://localhost:8000/todos`) and create a TODO in MongoDB.
-2. A list with hardcoded TODOs. This should be changed to reflect TODOs in the backend (`GET http://localhost:8000/todos`). 
-3. When the form is submitted, the TODO list should refresh again and fetch latest list of TODOs from MongoDB.
+Documents are stored with native Mongo types — an `ObjectId` and a UTC date.
+`services.py` converts both to plain JSON on the way out, so nothing
+Mongo-specific reaches the browser.
 
-# Instructions [IMPORTANT] 
-1. All React code should be implemented using [React hooks](https://reactjs.org/docs/hooks-intro.html) and should not use traditional stateful React components and component lifecycle method.
-2. Do not use Django's model, serializers or SQLite DB. Persist and retrieve all data from the mongo instance. A `db` instance is already present in `views.py`.
-3. Do not bypass the Docker setup. Submissions that do not have proper docker setup will be rejected.
-4. We are looking for developers who have strong fundamentals and can ramp up fast. We expect you to learn and grasp basic React Hooks/Mongo/Docker concepts on the fly.
-5. Do not fork this repository or submit your solution as a PR since this is a public repo and there are other candidates taking the same test. Send us a link to your repo privately.
-6. If you are able to complete the test, we will have a live walkthrough of your code and ask questions to check your understanding.
-7. The code for the actual solution is pretty easy. The code quality in your solution should be production-ready - error handling, abstractions, well-maintainable and modular code. If you're not aware, we recommend reading a bit about software design principles and applying them (both JS and Python). Here are some reading resources to get you started:
-   * https://kinsta.com/blog/python-object-oriented-programming/
-   * https://realpython.com/solid-principles-python/
-   * https://www.toptal.com/python/python-design-patterns
+### Notes on the pinned versions
+
+The image pins MongoDB 7.0, Node 16, and Python 3.8. Each is deliberate:
+
+- **MongoDB 7.0** — MongoDB 4.4 is no longer published for Debian bookworm,
+  which is this image's base.
+- **Node 16** — create-react-app 4 does not support Node 18, and installing Node
+  this way pins the version deliberately rather than inheriting whatever the
+  distro ships. On Node 18 this toolchain fails twice: webpack 4 hashes with
+  md4, which OpenSSL 3 moved to its legacy provider, and `postcss` exports its
+  subpaths in a form Node 17 stopped accepting.
+- **A C toolchain** — six packages in `requirements.txt` ship no prebuilt wheel
+  and are compiled during the image build.
+
+`requirements.txt` pins every version exactly, so a rebuild years from now
+produces the same environment.
+
+## Getting started
+
+You need Docker with Compose v2. Nothing else — no Python, Node, or MongoDB on
+your machine.
+
+```bash
+git clone https://github.com/Wraient/Adbrew-todo.git
+cd Adbrew-todo
+export CODE_PATH="$PWD/src"
+
+docker compose build
+docker compose up -d
+```
+
+Then open **http://localhost:3000**.
+
+The first build takes about ten minutes; later builds take seconds. Six
+packages compile from source, and the frontend installs its dependencies on
+first start, so give `app` a couple of minutes before expecting a page.
+
+```bash
+docker compose ps              # what is running
+docker compose logs -f api     # follow the API
+docker compose logs -f app     # follow the frontend
+docker compose down            # stop everything
+docker compose down -v         # stop, and delete the database
+```
+
+Your code is mounted into the containers, so edits on disk reload without a
+rebuild.
+
+## API
+
+Both forms work: `/todos/` and `/todos`.
+
+### `GET /todos/`
+
+```json
+{
+  "todos": [
+    {
+      "id": "6abfa88e41f63ad3639e1bb2",
+      "description": "Learn Docker",
+      "created_at": "2026-10-02T12:50:22.191626Z"
+    }
+  ]
+}
+```
+
+### `POST /todos/`
+
+```json
+{ "description": "Learn Docker" }
+```
+
+`201` with the created to-do. `400` with `{"error": "..."}` if `description` is
+missing, not a string, empty or whitespace-only, or longer than 280 characters.
+`503` if MongoDB cannot be reached.
+
+## Tests
+
+```bash
+cd src/app && yarn test
+```
+
+Covers rendering the API response, creating a to-do and refreshing the list, and
+surfacing an API error to the user.
+
+## Troubleshooting
+
+**A container exited, or `docker compose ps` shows `Exit`.**
+`docker compose logs <name>` — `app`, `api`, or `mongo`.
+
+**`${CODE_PATH}` is empty and the containers start with no source in them.**
+Export it before running compose: `export CODE_PATH="$PWD/src"`.
+
+**`api` returns `503` on every request.**
+Mongo isn't up yet, or it crashed. `docker compose logs mongo`.
+
+**The `app` container exits with `digital envelope routines::unsupported` or
+`ERR_PACKAGE_PATH_NOT_EXPORTED`.**
+It's running an unsupported Node. `docker compose run --rm app node --version`
+should print `v16.x`. If not, the image predates the Node pin — rebuild it with
+`docker compose build --no-cache app`.
+
+**The build fails with `no permission to read from .../src/db`.**
+Something outside Docker is writing to the database directory. Check that
+`.dockerignore` is present and lists `src/db`.
+
+**`mongo` won't start: `/data/db` is not empty or not writable.**
+The directory must exist on the host: `mkdir -p src/db src/tmp`. Both are
+git-ignored, so a fresh clone needs them created once.
+
+**Port already allocated.**
+`ss -lptn 'sport = :3000'` to find whoever has it, then stop that process.

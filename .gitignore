@@ -1,0 +1,13 @@
+# Bind-mounted by docker-compose -- runtime state, not source.
+src/db/
+src/tmp/
+
+# Created by Django at startup from the DATABASES setting in settings.py. The
+# app persists todos in MongoDB; this file stays empty.
+src/rest/mydatabase
+
+__pycache__/
+*.py[cod]
+
+# CRA build cache
+src/app/.eslintcache
